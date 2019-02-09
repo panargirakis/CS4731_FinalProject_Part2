@@ -9,6 +9,8 @@ let alpha = 0;
 
 let canvas;
 
+let vertex_buffer;
+
 function setup() {
 	// Retrieve <canvas> element
 	canvas = document.getElementById('webgl');
@@ -42,37 +44,77 @@ function main()
 		gl.viewport(0, 0, canvas.width, canvas.height * ratio);
 	}
 
-	// Set clear color
-	gl.clearColor(0.0, 0.0, 0.0, 1.0);
-
-	gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
 	gl.enable(gl.DEPTH_TEST);
 
-
-	for (let i = 0; i < shapes.length; i++) {
-		triangle(shapes[i]);
-	}
-
-}
-
-function triangle(points) {
 	colors = [];
-	for (let i = 0; i < points.length; i++) {
+	for (let i = 0; i < vertices.length; i++) {
 		colors.push(vec4(1.0,1.0,1.0,1.0));
 	}
 
 
-	//Create the buffer object
-	let vBuffer = gl.createBuffer();
+	// VERTICES
+	// Create an empty buffer object to store vertex buffer
+	vertex_buffer = gl.createBuffer();
+	// Bind appropriate array buffer to it
+	gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
+	// Pass the vertex data to the buffer
+	gl.bufferData(gl.ARRAY_BUFFER, flatten(vertices), gl.STATIC_DRAW);
+	// Unbind the buffer
+	gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
-	gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
-	gl.bufferData(gl.ARRAY_BUFFER, flatten(points), gl.STATIC_DRAW);
+
+	// COLOR
+	let cBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, flatten(colors), gl.STATIC_DRAW);
+	let vColor = gl.getAttribLocation(program, "vColor");
+	gl.vertexAttribPointer(vColor, 4, gl.FLOAT, false, 0, 0);
+	gl.enableVertexAttribArray(vColor);
+
+	// Set clear color
+	gl.clearColor(0.0, 0.0, 0.0, 1.0);
+
+	// render();
+
+	drawAll();
+
+
+	// for (let i = 0; i < shapes.length; i++) {
+	// 	triangle(shapes[i]);
+	// }
+
+}
+
+function drawAll() {
+
+	gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+	for (let i = 0; i < indices.length; i++) {
+		triangle(indices[i]);
+	}
+}
+
+function triangle(indices) {
+
+
+	// INDICES
+	// Create an empty buffer object to store Index buffer
+	let index_Buffer = gl.createBuffer();
+	// Bind appropriate array buffer to it
+	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index_Buffer);
+	// Pass the vertex data to the buffer
+	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+	// Unbind the buffer
+	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+
+	// Bind vertex buffer object
+	gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
+	// Bind index buffer object
+	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index_Buffer);
 
 	//Get the location of the shader's vPosition attribute in the GPU's memory
 	let vPosition = gl.getAttribLocation(program, "vPosition");
-
-
 	gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
 	gl.enableVertexAttribArray(vPosition);
 
@@ -80,25 +122,18 @@ function triangle(points) {
 	let offsetLoc = gl.getUniformLocation(program, "vPointSize");
 	gl.uniform1f(offsetLoc, 2.0);
 
-	let cBuffer = gl.createBuffer();
-	gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
-	gl.bufferData(gl.ARRAY_BUFFER, flatten(colors), gl.STATIC_DRAW);
-
-	let vColor = gl.getAttribLocation(program, "vColor");
-	gl.vertexAttribPointer(vColor, 4, gl.FLOAT, false, 0, 0);
-	gl.enableVertexAttribArray(vColor);
-
 	//This is how we handle extents
 	let thisProj = ortho(extents_lrbtnf[0], extents_lrbtnf[1], extents_lrbtnf[2],
 		extents_lrbtnf[3], extents_lrbtnf[4], extents_lrbtnf[5]);
 
+	// let  fovy = 100.0;
+	// let thisProj = perspective(fovy, 1, extents_lrbtnf[4], extents_lrbtnf[5]);
+
 	let projMatrix = gl.getUniformLocation(program, 'projMatrix');
 	gl.uniformMatrix4fv(projMatrix, false, flatten(thisProj));
 
-	//Necessary for animation
-	render();
-
-	// gl.drawArrays(gl.LINE_LOOP, 0, points.length);
+	// gl.drawArrays(gl.LINE_LOOP, 0, vertices.length);
+	gl.drawElements(gl.LINE_LOOP, indices.length, gl.UNSIGNED_SHORT,0);
 }
 
 let id;
@@ -112,18 +147,14 @@ function render() {
 	//var ctMatrix = mult(translateMatrix, tempMatrix);
 	let ctMatrix = mult(translateMatrix, rotMatrix);
 
-	theta += 0.5;
-	//alpha += 0.005;
+	// theta += 0.5;
+	// alpha += 0.05;
 
 	let ctMatrixLoc = gl.getUniformLocation(program, "modelMatrix");
 	gl.uniformMatrix4fv(ctMatrixLoc, false, flatten(ctMatrix));
 
-	gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+	drawAll();
 
-	gl.drawArrays(gl.LINE_LOOP, 0, points.length);
-	// gl.drawArrays(gl.LINE_STRIP, 0, points.length);
-
-	//console.log(theta);
 
 	//if(theta < -90) {
 	//	cancelAnimationFrame(id);
@@ -133,47 +164,4 @@ function render() {
 		id = requestAnimationFrame(render);
 	//}
 
-}
-
-//
-function quad(a, b, c, d)
-{
-	let vertices = [
-        vec4( -0.5, -0.5,  0.5, 1.0 ),
-        vec4( -0.5,  0.5,  0.5, 1.0 ),
-        vec4(  0.5,  0.5,  0.5, 1.0 ),
-        vec4(  0.5, -0.5,  0.5, 1.0 ),
-        vec4( -0.5, -0.5, -0.5, 1.0 ),
-        vec4( -0.5,  0.5, -0.5, 1.0 ),
-        vec4(  0.5,  0.5, -0.5, 1.0 ),
-        vec4(  0.5, -0.5, -0.5, 1.0 )
-    ];
-
-	let vertexColors = [
-        [ 0.0, 0.0, 0.0, 1.0 ],  // black
-        [ 1.0, 0.0, 0.0, 1.0 ],  // red
-        [ 1.0, 1.0, 0.0, 1.0 ],  // yellow
-        [ 0.0, 1.0, 0.0, 1.0 ],  // green
-        [ 0.0, 0.0, 1.0, 1.0 ],  // blue
-        [ 1.0, 0.0, 1.0, 1.0 ],  // magenta
-        [ 0.0, 1.0, 1.0, 1.0 ],  // cyan
-        [ 1.0, 1.0, 1.0, 1.0 ]   // white
-    ];
-
-    // We need to parition the quad into two triangles in order for
-    // WebGL to be able to render it.  In this case, we create two
-    // triangles from the quad indices
-
-    //vertex color assigned by the index of the vertex
-
-	let indices = [ a, b, c, a, c, d ];
-
-    for (let i = 0; i < indices.length; ++i ) {
-        points.push( vertices[indices[i]] );
-        //colors.push( vertexColors[indices[i]] );
-
-        // for solid colored faces use
-        colors.push(vertexColors[a]);
-
-    }
 }

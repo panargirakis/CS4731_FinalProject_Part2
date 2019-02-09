@@ -1,6 +1,8 @@
-let debug_p = 1;
+let debug_p = 0;
 let shapes = [];
 let extents_lrbtnf = [];
+let vertices = [];
+let indices = [];
 
 function print(text) {
     if (debug_p)
@@ -102,37 +104,38 @@ function parseFile(file) {
         print(n_polygons);
 
         // extract all vertices
-        let vertices = [];
+        vertices = [];
         for (let i = 0; i < n_vertices; i++) {
-            let coords = strArrtoF(data.shift().split(/\s+/)); // extract data, turn to int array
-            vertices.push(coords); // push to global vertices
-            update_ext(coords[0], coords[1], coords[2]);
+            let co = strArrtoF(data.shift().split(/\s+/)); // extract data, turn to int array
+            vertices.push([co[0], co[1], co[2], 1.0]); // push to global vertices
+            update_ext(co[0], co[1], co[2]);
         }
 
         // extract all polygons
-        let polygons = [];
+        indices = [];
         for (let i = 0; i < n_polygons; i++) {
             let coords = strArrtoF(data.shift().split(/\s+/)); // extract data, turn to int array
-            polygons.push(coords); // push to global vertices
+            coords.shift();
+            indices.push(coords); // push to global vertices
         }
 
         print(vertices);
-        print(polygons);
+        print(indices);
 
 
         // construct shapes out of vertices
         shapes = [];
-        for (let i = 0; i < polygons.length; i++) { // for every polygon
-            let line = polygons[i];
-            let temp = [];
-            for (let j = 1; j < line[0]+1; j++) { // for every vertex
-                let hom = vertices[line[j]];
-                temp.push([hom[0], hom[1], hom[2], 1.0]); // push vertex
-            }
-             shapes.push(temp); // push shape to shapes array
-        }
-
-        print(shapes);
+        // for (let i = 0; i < polygons.length; i++) { // for every polygon
+        //     let line = polygons[i];
+        //     let temp = [];
+        //     for (let j = 0; j < line[0]; j++) { // for every vertex
+        //         let hom = vertices[line[j]];
+        //         temp.push([hom[0], hom[1], hom[2], 1.0]); // push vertex
+        //     }
+        //      shapes.push(temp); // push shape to shapes array
+        // }
+        //
+        // print(shapes);
 
         main();
 
