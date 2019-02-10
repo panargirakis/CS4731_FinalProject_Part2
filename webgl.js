@@ -2,10 +2,12 @@
 let gl;
 let program;
 
-let points;
+let aspect;
+
 let colors;
 let theta = 0;
 let alpha = 0;
+let away = 0;
 
 let canvas;
 
@@ -37,11 +39,11 @@ function main()
 	//Set up the viewport
 	let d_width = extents_lrbtnf[1] - extents_lrbtnf[0]; // delta width
 	let d_height = extents_lrbtnf[3] - extents_lrbtnf[2]; // delta height
-	let ratio = d_height / d_width; // aspect ratio
-	if (ratio > 1.0) { // handdle aspect ratio
-		gl.viewport( 0, 0, canvas.width / ratio, canvas.height);
+	aspect = d_width / d_height; // aspect ratio
+	if (aspect < 1.0) { // handdle aspect ratio
+		gl.viewport( 0, 0, canvas.width / aspect, canvas.height);
 	} else {
-		gl.viewport(0, 0, canvas.width, canvas.height * ratio);
+		gl.viewport(0, 0, canvas.width, canvas.height * aspect);
 	}
 
 	gl.enable(gl.DEPTH_TEST);
@@ -74,9 +76,9 @@ function main()
 	// Set clear color
 	gl.clearColor(0.0, 0.0, 0.0, 1.0);
 
-	// render();
+	render();
 
-	drawAll();
+	//drawAll();
 
 
 	// for (let i = 0; i < shapes.length; i++) {
@@ -123,11 +125,11 @@ function triangle(indices) {
 	gl.uniform1f(offsetLoc, 2.0);
 
 	//This is how we handle extents
-	let thisProj = ortho(extents_lrbtnf[0], extents_lrbtnf[1], extents_lrbtnf[2],
-		extents_lrbtnf[3], extents_lrbtnf[4], extents_lrbtnf[5]);
+	// let thisProj = ortho(extents_lrbtnf[0], extents_lrbtnf[1], extents_lrbtnf[2],
+	// 	extents_lrbtnf[3], extents_lrbtnf[4], extents_lrbtnf[5]);
 
-	// let  fovy = 100.0;
-	// let thisProj = perspective(fovy, 1, extents_lrbtnf[4], extents_lrbtnf[5]);
+	let  fovy = 30.0;
+	let thisProj = perspective(fovy, 1.0, .1, 100);
 
 	let projMatrix = gl.getUniformLocation(program, 'projMatrix');
 	gl.uniformMatrix4fv(projMatrix, false, flatten(thisProj));
@@ -148,10 +150,21 @@ function render() {
 	let ctMatrix = mult(translateMatrix, rotMatrix);
 
 	// theta += 0.5;
-	// alpha += 0.05;
+	// alpha += 0.3;
+	away += 0.01;
+
+
+	let eye = vec3((extents_lrbtnf[5] - extents_lrbtnf[4]) * 3 + away,
+		(extents_lrbtnf[3] - extents_lrbtnf[2]) / 2 + away, away);
+	const at = vec3(0.0, 0.0, 0.0);
+	const up = vec3(0.0, 1.0, 0.0);
+	let viewMatrix = lookAt(eye, at, up);
 
 	let ctMatrixLoc = gl.getUniformLocation(program, "modelMatrix");
 	gl.uniformMatrix4fv(ctMatrixLoc, false, flatten(ctMatrix));
+
+	let viewMatrixLoc = gl.getUniformLocation(program, "viewMatrix");
+	gl.uniformMatrix4fv(viewMatrixLoc, false, flatten(viewMatrix));
 
 	drawAll();
 
