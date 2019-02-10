@@ -1,5 +1,4 @@
 let debug_p = 0;
-let shapes = [];
 let extents_lrbtnf = [];
 let vertices = [];
 let indices = [];
@@ -122,20 +121,6 @@ function parseFile(file) {
         print(vertices);
         print(indices);
 
-
-        // construct shapes out of vertices
-        shapes = [];
-        // for (let i = 0; i < polygons.length; i++) { // for every polygon
-        //     let line = polygons[i];
-        //     let temp = [];
-        //     for (let j = 0; j < line[0]; j++) { // for every vertex
-        //         let hom = vertices[line[j]];
-        //         temp.push([hom[0], hom[1], hom[2], 1.0]); // push vertex
-        //     }
-        //      shapes.push(temp); // push shape to shapes array
-        // }
-        //
-        // print(shapes);
 
         main();
 

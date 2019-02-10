@@ -2,12 +2,14 @@
 let gl;
 let program;
 
-let aspect;
-
 let colors;
 let theta = 0;
 let alpha = 0;
 let away = 0;
+
+let  fovy = 30.0;
+let initEye;
+let initAt;
 
 let canvas;
 
@@ -36,15 +38,8 @@ function setup() {
 
 function main() 
 {
-	//Set up the viewport
-	let d_width = extents_lrbtnf[1] - extents_lrbtnf[0]; // delta width
-	let d_height = extents_lrbtnf[3] - extents_lrbtnf[2]; // delta height
-	aspect = d_width / d_height; // aspect ratio
-	if (aspect < 1.0) { // handdle aspect ratio
-		gl.viewport( 0, 0, canvas.width / aspect, canvas.height);
-	} else {
-		gl.viewport(0, 0, canvas.width, canvas.height * aspect);
-	}
+
+	gl.viewport(0, 0, canvas.width, canvas.height);
 
 	gl.enable(gl.DEPTH_TEST);
 
@@ -76,14 +71,23 @@ function main()
 	// Set clear color
 	gl.clearColor(0.0, 0.0, 0.0, 1.0);
 
+	const LtoR = Math.abs(extents_lrbtnf[1]) + Math.abs(extents_lrbtnf[0]); // length of left to right
+	const BtoT = Math.abs(extents_lrbtnf[2]) + Math.abs(extents_lrbtnf[3]); // length of bottom to top
+
+	const A = (LtoR/2*sinDeg(90-fovy/2)) / sinDeg(fovy/2);
+	const B = (BtoT/2*sinDeg(90-fovy/2)) / sinDeg(fovy/2);
+
+	const eyeD = (A > B ? A : B);
+
+	const xMid = (extents_lrbtnf[1] + extents_lrbtnf[0]) / 2;
+	const yMid = (extents_lrbtnf[3] + extents_lrbtnf[2]) / 2;
+	const zMid = (extents_lrbtnf[4] + extents_lrbtnf[5]) / 2;
+
+	initEye = vec3(xMid, yMid, extents_lrbtnf[4] + eyeD * 1.13);
+
+	initAt = vec3(xMid, yMid, zMid);
+
 	render();
-
-	//drawAll();
-
-
-	// for (let i = 0; i < shapes.length; i++) {
-	// 	triangle(shapes[i]);
-	// }
 
 }
 
@@ -124,12 +128,9 @@ function triangle(indices) {
 	let offsetLoc = gl.getUniformLocation(program, "vPointSize");
 	gl.uniform1f(offsetLoc, 2.0);
 
-	//This is how we handle extents
-	// let thisProj = ortho(extents_lrbtnf[0], extents_lrbtnf[1], extents_lrbtnf[2],
-	// 	extents_lrbtnf[3], extents_lrbtnf[4], extents_lrbtnf[5]);
-
-	let  fovy = 30.0;
-	let thisProj = perspective(fovy, 1.0, .1, 100);
+	// PERSPECTIVE
+	let asRatio = canvas.width / canvas.height;
+	let thisProj = perspective(fovy, asRatio, extents_lrbtnf[4] / 2, initEye[2] * 2);
 
 	let projMatrix = gl.getUniformLocation(program, 'projMatrix');
 	gl.uniformMatrix4fv(projMatrix, false, flatten(thisProj));
@@ -149,14 +150,17 @@ function render() {
 	//var ctMatrix = mult(translateMatrix, tempMatrix);
 	let ctMatrix = mult(translateMatrix, rotMatrix);
 
+	console.log(extents_lrbtnf);
+
 	// theta += 0.5;
 	// alpha += 0.3;
-	away += 0.01;
+	// away += 0.01 * eyeD;
 
+	let eye = initEye;
+	let at = initAt;
 
-	let eye = vec3((extents_lrbtnf[5] - extents_lrbtnf[4]) * 3 + away,
-		(extents_lrbtnf[3] - extents_lrbtnf[2]) / 2 + away, away);
-	const at = vec3(0.0, 0.0, 0.0);
+	console.log(eye);
+
 	const up = vec3(0.0, 1.0, 0.0);
 	let viewMatrix = lookAt(eye, at, up);
 
@@ -174,7 +178,25 @@ function render() {
 	//}
 	//else
 	//{
-		id = requestAnimationFrame(render);
+	// 	id = requestAnimationFrame(render);
 	//}
 
+}
+
+function sinDeg(angleDegrees) {
+	return Math.sin(angleDegrees*Math.PI/180);
+}
+
+function getEyeZ(midX, midY) {
+	const maxZ = extents_lrbtnf[5];
+	const maxX = extents_lrbtnf[1];
+	const maxY = extents_lrbtnf[3];
+
+	// possible distance that for sure sees the Y aspect of the box
+	const A = ((maxY - midY) / Math.tan(fovy / 2)) +
+		( maxZ * 3);
+	// possible distance that for sure sees the X aspect of the box
+	const B = ((maxX - midX) / Math.tan(fovy / 2)) +
+		( maxZ * 3);
+	return (A > B ? A : B);
 }
