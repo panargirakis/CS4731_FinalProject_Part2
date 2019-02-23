@@ -2,7 +2,7 @@
 let gl;
 let program;
 
-let normals;
+let normals, flatNormals;
 
 let defMatProp=[
 	[vec4( 0.8, 0.0, 0.0, 1.0), vec4(1.0, 0.3, 0.3, 1.0), vec4(1.0, 0.8, 0.8, 1.0), 5.0],
@@ -21,6 +21,7 @@ const fovy = 30.0;
 let initEye;
 let initAt;
 let objMiddle;
+let flatShadOn = 0;
 
 var lightPosition = vec4(10.0, 10.0, -4.0, 0.0 );
 var lightAmbient = vec4(0.2, 0.2, 0.2, 1.0 );
@@ -55,18 +56,26 @@ class Stack {
 
 let mvMatrix;
 
-let transXOn_isRi = [0, 0], transYOn_isUp = [0, 0], transZOn_isFr = [0, 0], rotOn = 0;
+let transXOn_isRi = [0, 0], transYOn_isUp = [0, 0], transZOn_isFr = [0, 0], rotOn = 1;
 
 	let canvas;
 
 let vertex_buffer;
 
-function setup() {
-	transXOn_isRi = [0, 0], transYOn_isUp = [0, 0], transZOn_isFr = [0, 0], rotOn = 0;
+function initVar() {
+	transXOn_isRi = [0, 0], transYOn_isUp = [0, 0], transZOn_isFr = [0, 0], rotOn = 1;
 	theta = 0;
 	isIncr = 1;
 	trPar = [0, 0, 0];
 	extents_lrbtnf = [-1, 1, -1, 1, 1, -1];
+	indices = [];
+	vertices = [];
+	totFilesRead = 0;
+	spotLAngle = 0.96;
+}
+
+function setup() {
+	initVar();
 	// Retrieve <canvas> element
 	canvas = document.getElementById('webgl');
 
@@ -97,18 +106,39 @@ function main()
 
 	gl.enable(gl.DEPTH_TEST);
 
+	console.log("Called Main");
+
+	if (indices.length === 2) {
+		indices = [indices[0], indices[1], indices[0], indices[1], indices[0], indices[1]];
+		vertices = [vertices[0], vertices[1], vertices[0], vertices[1], vertices[0], vertices[1]];
+	} else if (indices.length === 1) {
+		indices = [indices[0], indices[0], indices[0], indices[0], indices[0], indices[0]];
+		vertices = [vertices[0], vertices[0], vertices[0], vertices[0], vertices[0], vertices[0]];
+	}
+
 	matProp = [];
 	for (let i = 0; i < indices.length; i++) {
 		matProp.push(defMatProp[i%defMatProp.length]);
 	}
 
 	normals = [];
+	flatNormals = [];
 	for (let i = 0; i < vertices.length; i++) {
 		let temp = [];
 		for (let j = 0; j < vertices[i].length; j++) {
 			temp.push([vertices[i][j][0], vertices[i][j][1], vertices[i][j][2], 0]);
 		}
 		normals.push(temp);
+	}
+	for (let i = 0; i < vertices.length; i++) { // flat normals
+		let temp = [];
+		for (let j = 0; j < vertices[i].length; j += 3) {
+			const temp2 = [vertices[i][j][0], vertices[i][j][1], vertices[i][j][2], 0];
+			temp.push(temp2);
+			temp.push(temp2);
+			temp.push(temp2);
+		}
+		flatNormals.push(temp);
 	}
 
 	// Set clear color
@@ -138,12 +168,6 @@ function main()
 	// EYE
 	const up = vec3(0.0, 1.0, 0.0);
 	let viewMatrix = lookAt(initEye, initAt, up);
-
-	// let pvM = mult(thisProj, viewMatrix);
-
-	// // store VIEW into gpu memory
-	// let viewMatrixLoc = gl.getUniformLocation(program, "viewMatrix");
-	// gl.uniformMatrix4fv(viewMatrixLoc, false, flatten(viewMatrix));
 
 	// store PERSPECTIVE into gpu memory
 	let projMatrixLoc = gl.getUniformLocation(program, "projMatrix");
@@ -184,14 +208,22 @@ function render() {
 
 	let stack = new Stack();
 	let linePoints = [];
+	let point = vec4(0, 0, 0, 0);
 
 	stack.push(mvMatrix, 0);
 		mvMatrix = mult(mvMatrix, translateMatrix);
+
+	if (indices.length === 2) {
+		indices = [indices[0], indices[0], indices[0], indices[1], indices[1], indices[1]];
+	} else if (indices.length === 1) {
+		indices = [indices[0], indices[0], indices[0], indices[0], indices[0], indices[0]];
+	}
 
 	if (indices.length >= 6) {
 		gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 		stack.push(mvMatrix, 0);
+		linePoints.push(point);
 			mvMatrix = mult(mvMatrix, rotateY(theta));
 			gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
 			objectDrawInd(0);
@@ -201,17 +233,24 @@ function render() {
 		mvMatrix = mult(mvMatrix, rotateY(-theta));
 			stack.push(mvMatrix, -theta);
 				mvMatrix = mult(mvMatrix, mult(translate(6, -3, 0), rotateY(stack.calcRot(theta))));
+				point = mult(mvMatrix, point);
+				linePoints.push(point);
 				gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
 				objectDrawInd(1);
 
 				stack.push(mvMatrix, 0);
 					mvMatrix = mult(mvMatrix, mult(translate(2, -3, 0), rotateY(stack.calcRot(2*theta))));
+					point = mult(mvMatrix, point);
+					linePoints.push(point);
 					gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
-					objectDrawInd(2);
+					objectDrawInd(1);
 				mvMatrix = stack.pop();
 
 				stack.push(mvMatrix, 0);
 					mvMatrix = mult(mvMatrix, mult(translate(-2, -3, 0), rotateY(stack.calcRot(theta))));
+					point = linePoints[linePoints.length-2];
+					point = mult(mvMatrix, point);
+					linePoints.push(point);
 					gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
 					objectDrawInd(2);
 				mvMatrix = stack.pop();
@@ -219,17 +258,26 @@ function render() {
 
 			stack.push(mvMatrix, -theta);
 				mvMatrix = mult(mvMatrix, mult(translate(-6, -3, 0), rotateY(stack.calcRot(theta/3))));
+				point = linePoints[linePoints.length-4];
+				point = mult(mvMatrix, point);
+				linePoints.push(point);
+
 				gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
 				objectDrawInd(3);
 
 				stack.push(mvMatrix, 0);
 					mvMatrix = mult(mvMatrix, mult(translate(2, -3, 0), rotateY(stack.calcRot(3*theta))));
+					point = mult(mvMatrix, point);
+					linePoints.push(point);
 					gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
 					objectDrawInd(4);
 				mvMatrix = stack.pop();
 
 				stack.push(mvMatrix, 0);
 					mvMatrix = mult(mvMatrix, mult(translate(-2, -3, 0), rotateY(stack.calcRot(theta/2))));
+					point = linePoints[linePoints.length-2];
+					point = mult(mvMatrix, point);
+					linePoints.push(point);
 					gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
 					objectDrawInd(5);
 				mvMatrix = stack.pop();
@@ -238,8 +286,8 @@ function render() {
 		mvMatrix = stack.pop();
 	}
 	else {
-		gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
-		drawAll();
+		// gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
+		// drawAll();
 	}
 
 	mvMatrix = stack.pop();
@@ -254,13 +302,22 @@ function drawAll() {
 	gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 	for (let i = 0; i < indices.length; i++) {
-		object(indices[i], vertices[i], matProp[i], normals[i]);
+		if (flatShadOn) {
+			object(indices[i], vertices[i], matProp[i], flatNormals[i]);
+		} else {
+			object(indices[i], vertices[i], matProp[i], normals[i]);
+		}
+
 	}
 }
 
 function objectDrawInd(index) {
 	const i = index;
-	object(indices[i], vertices[i], matProp[i], normals[i]);
+	if (flatShadOn) {
+		object(indices[i], vertices[i], matProp[i], flatNormals[i]);
+	} else {
+		object(indices[i], vertices[i], matProp[i], normals[i]);
+	}
 }
 
 function object(indices, vertices, matProp, normals) {
@@ -318,6 +375,7 @@ function object(indices, vertices, matProp, normals) {
 	gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
 	gl.enableVertexAttribArray(vPosition);
 
+	// NORMALS
 	var vBuffer2 = gl.createBuffer();
 	gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer2);
 	gl.bufferData(gl.ARRAY_BUFFER, flatten(normals), gl.STATIC_DRAW);
@@ -343,6 +401,14 @@ function handleKeys() {
 	{
 		let key = event.key;
 		switch (key) {
+			case "m": {
+				flatShadOn = 0;
+				break;
+			}
+			case "n": {
+				flatShadOn = 1;
+				break;
+			}
 			case "p": {
 				spotLAngle += spotLAngInc;
 				break;

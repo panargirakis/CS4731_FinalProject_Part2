@@ -2,6 +2,7 @@ let debug_p = 0;
 let extents_lrbtnf;
 let vertices = [];
 let indices = [];
+let totFilesRead = 0;
 
 function print(text) {
     if (debug_p)
@@ -36,6 +37,10 @@ function readFile() {
         if (x.files.length === 0) {
             txt = "Select a file.";
         } else {
+            totFilesRead = x.files.length;
+            indices = [];
+            vertices = [];
+            spotLAngle = 0.96;
             txt += "<br><strong>" + "File info:</strong><br>";
             let file = x.files[0];
             if ('name' in file) {
@@ -150,8 +155,9 @@ function parseFile(file) {
         print(indices);
 
 
-        main();
-
+        if (totFilesRead === indices.length) {
+            main();
+        }
     };
 
     reader.readAsText(file);
