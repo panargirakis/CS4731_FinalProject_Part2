@@ -4,9 +4,16 @@ let program;
 
 let normals;
 
-let colors;
+let defMatProp=[
+	[vec4( 0.8, 0.0, 0.0, 1.0), vec4(1.0, 0.3, 0.3, 1.0), vec4(1.0, 0.8, 0.8, 1.0), 5.0],
+	[vec4( 0.0, 1.0, 1.0, 1.0), vec4(0.5, 1.0, 1.0, 1.0), vec4(1.0, 1.0, 1.0, 1.0), 5.0],
+	[vec4( 0.1, 0.1, 0.1, 1.0), vec4(0.5, 0.5, 0.5, 1.0), vec4(1.0, 1.0, 1.0, 1.0), 40.0],
+	[vec4( 0.5, 0.0, 1.0, 1.0), vec4(0.5, 0.3, 1.0, 1.0), vec4(1.0, 1.0, 1.0, 1.0), 20.0],
+];
+let matProp;
 let theta = 0;
-let breathe = 0;
+let spotLAngle = 0.96;
+const spotLAngInc = -0.005;
 let isIncr = 1;
 let trPar = [0, 0, 0];
 
@@ -14,15 +21,52 @@ const fovy = 30.0;
 let initEye;
 let initAt;
 let objMiddle;
-let objScale;
 
-let pulseOn = 0, transXOn_isRi = [0, 0], transYOn_isUp = [0, 0], transZOn_isFr = [0, 0], rotOn = 0;
+var lightPosition = vec4(10.0, 10.0, -4.0, 0.0 );
+var lightAmbient = vec4(0.2, 0.2, 0.2, 1.0 );
+var lightDiffuse = vec4( 1.0, 1.0, 1.0, 1.0 );
+var lightSpecular = vec4( 1.0, 1.0, 1.0, 1.0 );
+
+function add(n1, n2) {
+	return n1 + n2;
+}
+
+class Stack {
+	constructor() {
+		this.stack = [];
+		this.totalRot = [];
+	}
+
+	push(mat, rot) {
+		this.stack.push(mat);
+		this.totalRot.push(rot);
+	}
+
+	pop() {
+		this.totalRot.pop();
+		return this.stack.pop();
+	}
+
+	calcRot(newRot) {
+		let sum = this.totalRot.reduce(add);
+		return -sum + newRot;
+	}
+}
+
+let mvMatrix;
+
+let transXOn_isRi = [0, 0], transYOn_isUp = [0, 0], transZOn_isFr = [0, 0], rotOn = 0;
 
 	let canvas;
 
 let vertex_buffer;
 
 function setup() {
+	transXOn_isRi = [0, 0], transYOn_isUp = [0, 0], transZOn_isFr = [0, 0], rotOn = 0;
+	theta = 0;
+	isIncr = 1;
+	trPar = [0, 0, 0];
+	extents_lrbtnf = [-1, 1, -1, 1, 1, -1];
 	// Retrieve <canvas> element
 	canvas = document.getElementById('webgl');
 
@@ -40,76 +84,38 @@ function setup() {
 	// We tell WebGL which shader program to execute.
 	gl.useProgram(program);
 
+	gl.uniform4fv(gl.getUniformLocation(program,
+		"lightPosition"), flatten(lightPosition));
+
 }
 
 
 function main() 
 {
 	handleKeys();
-	pulseOn = 0, transXOn_isRi = [0, 0], transYOn_isUp = [0, 0], transZOn_isFr = [0, 0], rotOn = 0;
-	theta = 0;
-	breathe = 0;
-	isIncr = 1;
-	trPar = [0, 0, 0];
-
 	gl.viewport(0, 0, canvas.width, canvas.height);
 
 	gl.enable(gl.DEPTH_TEST);
 
-	colors = [];
-	for (let i = 0; i < vertices.length; i++) {
-		colors.push(vec4(1.0,1.0,1.0,1.0));
+	matProp = [];
+	for (let i = 0; i < indices.length; i++) {
+		matProp.push(defMatProp[i%defMatProp.length]);
 	}
 
 	normals = [];
-	for (let i = 0; i < indices.length; i++) {
-		let temp = indices[i];
-
-		let norm = [0, 0, 0];
-
-		for (let j = 0; j < temp.length; j++) {
-			let vert_curr = vertices[temp[j]];
-			let vert_next = vertices[temp[(j+1)%temp.length]];
-
-			norm[0] += (vert_curr[1] - vert_next[1]) * (vert_curr[2] + vert_next[2]);
-			norm[1] += (vert_curr[2] - vert_next[2]) * (vert_curr[0] + vert_next[0]);
-			norm[2] += (vert_curr[0] - vert_next[0]) * (vert_curr[1] + vert_next[1]);
+	for (let i = 0; i < vertices.length; i++) {
+		let temp = [];
+		for (let j = 0; j < vertices[i].length; j++) {
+			temp.push([vertices[i][j][0], vertices[i][j][1], vertices[i][j][2], 0]);
 		}
-
-		let sum = 0;
-		for (let aa = 0; aa < norm.length; aa++) {
-			sum += norm[aa]*norm[aa];
-		}
-		let ratio = Math.sqrt(sum);
-		for (let aa = 0; aa < norm.length; aa++) {
-			norm[aa] /= ratio;
-		}
-
-		normals.push(norm);
+		normals.push(temp);
 	}
-
-
-	// VERTICES
-	// Create an empty buffer object to store vertex buffer
-	vertex_buffer = gl.createBuffer();
-	// Bind appropriate array buffer to it
-	gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
-	// Pass the vertex data to the buffer
-	gl.bufferData(gl.ARRAY_BUFFER, flatten(vertices), gl.STATIC_DRAW);
-	// Unbind the buffer
-	gl.bindBuffer(gl.ARRAY_BUFFER, null);
-
-
-	// COLOR
-	let cBuffer = gl.createBuffer();
-	gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
-	gl.bufferData(gl.ARRAY_BUFFER, flatten(colors), gl.STATIC_DRAW);
-	let vColor = gl.getAttribLocation(program, "vColor");
-	gl.vertexAttribPointer(vColor, 4, gl.FLOAT, false, 0, 0);
-	gl.enableVertexAttribArray(vColor);
 
 	// Set clear color
 	gl.clearColor(0.0, 0.0, 0.0, 1.0);
+
+	gl.enable(gl.CULL_FACE);
+	gl.cullFace(gl.BACK);
 
 	// do some trig to figure out eye z value
 	const LtoR = Math.abs(extents_lrbtnf[1]) + Math.abs(extents_lrbtnf[0]); // length of left to right
@@ -120,13 +126,10 @@ function main()
 
 	const eyeD = (A > B ? A : B); // get max
 
-	const xMid = (extents_lrbtnf[1] + extents_lrbtnf[0]) / 2;
-	const yMid = (extents_lrbtnf[3] + extents_lrbtnf[2]) / 2;
-	const zMid = (extents_lrbtnf[4] + extents_lrbtnf[5]) / 2;
-	objMiddle = vec3(xMid, yMid, zMid); // get middle of object
+	objMiddle = vec3(0, 0, 0); // get middle of object
 
-	initEye = vec3(xMid, yMid, extents_lrbtnf[4] + eyeD * 1.2); // eye vector
-	initAt = vec3(xMid, yMid, zMid); // at vector
+	initEye = vec3(0, 4, extents_lrbtnf[4] + eyeD * 9); // eye vector
+	initAt = vec3(0, 0 - 4, 0); // at vector
 
 	// PERSPECTIVE
 	const asRatio = canvas.width / canvas.height;
@@ -136,16 +139,17 @@ function main()
 	const up = vec3(0.0, 1.0, 0.0);
 	let viewMatrix = lookAt(initEye, initAt, up);
 
-	// combine PERSPECTIVE and VIEW and store them in GPU memory
-	let pvM = mult(thisProj, viewMatrix);
-	let projViewMatrixLoc = gl.getUniformLocation(program, "projViewMatrix");
-	gl.uniformMatrix4fv(projViewMatrixLoc, false, flatten(pvM));
+	// let pvM = mult(thisProj, viewMatrix);
 
-	// get an idea of the coordinate scaling the object uses
-	const zScale = Math.abs(extents_lrbtnf[4] - extents_lrbtnf[5]);
-	const xScale = Math.abs(extents_lrbtnf[0] - extents_lrbtnf[1]);
-	const yScale = Math.abs(extents_lrbtnf[2] - extents_lrbtnf[3]);
-	objScale = Math.max(xScale, yScale, zScale);
+	// // store VIEW into gpu memory
+	// let viewMatrixLoc = gl.getUniformLocation(program, "viewMatrix");
+	// gl.uniformMatrix4fv(viewMatrixLoc, false, flatten(viewMatrix));
+
+	// store PERSPECTIVE into gpu memory
+	let projMatrixLoc = gl.getUniformLocation(program, "projMatrix");
+	gl.uniformMatrix4fv(projMatrixLoc, false, flatten(thisProj));
+
+	mvMatrix = viewMatrix; // initialize mvMatrix
 
 	render();
 }
@@ -154,14 +158,10 @@ let id;
 
 function render() {
 	if (rotOn) // increment rotation if on
-		theta += 0.5;
-	// translate * rotate * translate ensures object is rotated about its own center
-	let trans1 = translate(-objMiddle[0], -objMiddle[1], -objMiddle[2]);
-	let rotMatrix = rotate(theta, vec3(1, 0, 0));
-	let trans2 = translate(objMiddle[0], objMiddle[1], objMiddle[2]);
+		theta += 0.2;
 
 	// handle the translation of the object
-	const translSpeed = 0.01 * objScale;
+	const translSpeed = 0.01;
 	if (transXOn_isRi[0]) { // if X translate on
 		let sign = transXOn_isRi[1] === 1 ? 1 : -1; // determine direction
 		trPar[0] += sign * translSpeed; // update translation vector
@@ -176,34 +176,73 @@ function render() {
 	}
 	let translateMatrix = translate(trPar[0], trPar[1], trPar[2]); // translation matrix
 
-	let ctMatrix = mult(translateMatrix, mult(trans2, mult(rotMatrix, trans1)));
-
-
-	// handle the pulsing effect - modulates 'breathe' var from 0 to 1
-	const duration = 2.0; // target duration of animation in seconds
-	if (pulseOn) {
-		// increment based on direction
-		const sign = isIncr === 1 ? 1 : -1;
-		breathe += sign * ( 1 / 60 / duration);
-
-		// clip to bounds
-		if (breathe < 0)
-			breathe = 0;
-		if (breathe > 1)
-			breathe = 1;
-
-		if (breathe === 1.0 && isIncr === 1) {
-			isIncr = 0;
-		} else if (breathe === 0.0 && isIncr === 0) {
-			isIncr = 1;
-		}
-	}
+	gl.uniform1f(gl.getUniformLocation(program,
+		"dotP"), spotLAngle);
 
 	// place final matrix in gpu buffer
-	let ctMatrixLoc = gl.getUniformLocation(program, "modelMatrix");
-	gl.uniformMatrix4fv(ctMatrixLoc, false, flatten(ctMatrix));
+	let mvMatrixLoc = gl.getUniformLocation(program, "mvMatrix");
 
-	drawAll();
+	let stack = new Stack();
+	let linePoints = [];
+
+	stack.push(mvMatrix, 0);
+		mvMatrix = mult(mvMatrix, translateMatrix);
+
+	if (indices.length >= 6) {
+		gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+		stack.push(mvMatrix, 0);
+			mvMatrix = mult(mvMatrix, rotateY(theta));
+			gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
+			objectDrawInd(0);
+		mvMatrix = stack.pop();
+
+		stack.push(mvMatrix, 0);
+		mvMatrix = mult(mvMatrix, rotateY(-theta));
+			stack.push(mvMatrix, -theta);
+				mvMatrix = mult(mvMatrix, mult(translate(6, -3, 0), rotateY(stack.calcRot(theta))));
+				gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
+				objectDrawInd(1);
+
+				stack.push(mvMatrix, 0);
+					mvMatrix = mult(mvMatrix, mult(translate(2, -3, 0), rotateY(stack.calcRot(2*theta))));
+					gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
+					objectDrawInd(2);
+				mvMatrix = stack.pop();
+
+				stack.push(mvMatrix, 0);
+					mvMatrix = mult(mvMatrix, mult(translate(-2, -3, 0), rotateY(stack.calcRot(theta))));
+					gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
+					objectDrawInd(2);
+				mvMatrix = stack.pop();
+			mvMatrix = stack.pop();
+
+			stack.push(mvMatrix, -theta);
+				mvMatrix = mult(mvMatrix, mult(translate(-6, -3, 0), rotateY(stack.calcRot(theta/3))));
+				gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
+				objectDrawInd(3);
+
+				stack.push(mvMatrix, 0);
+					mvMatrix = mult(mvMatrix, mult(translate(2, -3, 0), rotateY(stack.calcRot(3*theta))));
+					gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
+					objectDrawInd(4);
+				mvMatrix = stack.pop();
+
+				stack.push(mvMatrix, 0);
+					mvMatrix = mult(mvMatrix, mult(translate(-2, -3, 0), rotateY(stack.calcRot(theta/2))));
+					gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
+					objectDrawInd(5);
+				mvMatrix = stack.pop();
+
+			mvMatrix = stack.pop();
+		mvMatrix = stack.pop();
+	}
+	else {
+		gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
+		drawAll();
+	}
+
+	mvMatrix = stack.pop();
 
 
 	id = requestAnimationFrame(render);
@@ -215,11 +254,47 @@ function drawAll() {
 	gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 	for (let i = 0; i < indices.length; i++) {
-		triangle(indices[i], normals[i]);
+		object(indices[i], vertices[i], matProp[i], normals[i]);
 	}
 }
 
-function triangle(indices, normal) {
+function objectDrawInd(index) {
+	const i = index;
+	object(indices[i], vertices[i], matProp[i], normals[i]);
+}
+
+function object(indices, vertices, matProp, normals) {
+
+	// INITIALIZE ATTRIBUTE BUFFERS
+
+	let materialAmbient = matProp[0];
+	let materialDiffuse = matProp[1];
+	let materialSpecular = matProp[2];
+	let materialShininess = matProp[3];
+
+	let diffuseProduct = mult(lightDiffuse, materialDiffuse);
+	let specularProduct = mult(lightSpecular, materialSpecular);
+	let ambientProduct = mult(lightAmbient, materialAmbient);
+
+
+	gl.uniform4fv(gl.getUniformLocation(program,
+		"diffuseProduct"), flatten(diffuseProduct));
+	gl.uniform4fv(gl.getUniformLocation(program,
+		"specularProduct"), flatten(specularProduct));
+	gl.uniform4fv(gl.getUniformLocation(program,
+		"ambientProduct"), flatten(ambientProduct));
+	gl.uniform1f(gl.getUniformLocation(program,
+		"shininess"), materialShininess);
+
+	// VERTICES
+	// Create an empty buffer object to store vertex buffer
+	vertex_buffer = gl.createBuffer();
+	// Bind appropriate array buffer to it
+	gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
+	// Pass the vertex data to the buffer
+	gl.bufferData(gl.ARRAY_BUFFER, flatten(vertices), gl.STATIC_DRAW);
+	// Unbind the buffer
+	gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
 
 	// INDICES
@@ -238,21 +313,20 @@ function triangle(indices, normal) {
 	// Bind index buffer object
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index_Buffer);
 
-
-	// create translate matrix for pulsing effect
-	const scl = breathe * 0.1 * objScale;
-	let translateMatrix = translate(normal[0] * scl, normal[1] * scl, normal[2] * scl);
-
-	// save matrix
-	let ctmLoc = gl.getUniformLocation(program, "currTM");
-	gl.uniformMatrix4fv(ctmLoc, false, flatten(translateMatrix));
-
 	//Get the location of the shader's vPosition attribute in the GPU's memory
 	let vPosition = gl.getAttribLocation(program, "vPosition");
 	gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
 	gl.enableVertexAttribArray(vPosition);
 
-	gl.drawElements(gl.LINE_LOOP, indices.length, gl.UNSIGNED_SHORT,0);
+	var vBuffer2 = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer2);
+	gl.bufferData(gl.ARRAY_BUFFER, flatten(normals), gl.STATIC_DRAW);
+
+	var vNormal = gl.getAttribLocation( program, "vNormal");
+	gl.vertexAttribPointer(vNormal, 4, gl.FLOAT, false, 0, 0);
+	gl.enableVertexAttribArray(vNormal);
+
+	gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT,0);
 }
 
 function sinDeg(angleDegrees) {
@@ -269,7 +343,15 @@ function handleKeys() {
 	{
 		let key = event.key;
 		switch (key) {
-			case "x": {
+			case "p": {
+				spotLAngle += spotLAngInc;
+				break;
+			}
+			case "i": {
+				spotLAngle -= spotLAngInc;
+				break;
+			}
+			case "d": {
 				if (transXOn_isRi[0] || transYOn_isUp[0] || transZOn_isFr[0]) {
 					transXOn_isRi[0] = 0; transYOn_isUp[0] = 0; transZOn_isFr[0] = 0;
 				} else {
@@ -277,7 +359,7 @@ function handleKeys() {
 				}
 				break;
 			}
-			case "c": {
+			case "a": {
 				if (transXOn_isRi[0] || transYOn_isUp[0] || transZOn_isFr[0]) {
 					transXOn_isRi[0] = 0; transYOn_isUp[0] = 0; transZOn_isFr[0] = 0;
 				} else {
@@ -285,7 +367,7 @@ function handleKeys() {
 				}
 				break;
 			}
-			case "y": {
+			case "w": {
 				if (transXOn_isRi[0] || transYOn_isUp[0] || transZOn_isFr[0]) {
 					transXOn_isRi[0] = 0; transYOn_isUp[0] = 0; transZOn_isFr[0] = 0;
 				} else {
@@ -293,7 +375,7 @@ function handleKeys() {
 				}
 				break;
 			}
-			case "u": {
+			case "s": {
 				if (transXOn_isRi[0] || transYOn_isUp[0] || transZOn_isFr[0]) {
 					transXOn_isRi[0] = 0; transYOn_isUp[0] = 0; transZOn_isFr[0] = 0;
 				} else {
@@ -301,7 +383,7 @@ function handleKeys() {
 				}
 				break;
 			}
-			case "z": {
+			case "q": {
 				if (transXOn_isRi[0] || transYOn_isUp[0] || transZOn_isFr[0]) {
 					transXOn_isRi[0] = 0; transYOn_isUp[0] = 0; transZOn_isFr[0] = 0;
 				} else {
@@ -309,7 +391,7 @@ function handleKeys() {
 				}
 				break;
 			}
-			case "a": {
+			case "e": {
 				if (transXOn_isRi[0] || transYOn_isUp[0] || transZOn_isFr[0]) {
 					transXOn_isRi[0] = 0; transYOn_isUp[0] = 0; transZOn_isFr[0] = 0;
 				} else {
@@ -319,10 +401,6 @@ function handleKeys() {
 			}
 			case "r": {
 				rotOn = flip(rotOn);
-				break;
-			}
-			case "b": {
-				pulseOn = flip(pulseOn);
 				break;
 			}
 		}

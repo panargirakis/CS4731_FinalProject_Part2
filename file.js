@@ -1,5 +1,5 @@
 let debug_p = 0;
-let extents_lrbtnf = [];
+let extents_lrbtnf;
 let vertices = [];
 let indices = [];
 
@@ -8,23 +8,24 @@ function print(text) {
         console.log(text);
 }
 
-function update_ext(x, y, z) {
-    if (extents_lrbtnf.length < 6) {
-        extents_lrbtnf = [x, x, y, y, z, z];
+function update_ext(extents, x, y, z) {
+    if (extents.length < 6) {
+        extents = [x, x, y, y, z, z];
     } else {
-        if (x < extents_lrbtnf[0]) // x smaller than leftmost
-            extents_lrbtnf[0] = x;
-        if (x > extents_lrbtnf[1]) // x bigger than rightmost
-            extents_lrbtnf[1] = x;
-        if (y < extents_lrbtnf[2]) // y less than bottom
-            extents_lrbtnf[2] = y;
-        if (y > extents_lrbtnf[3]) // y more than top
-            extents_lrbtnf[3] = y;
-        if (z > extents_lrbtnf[4]) // z more than near
-            extents_lrbtnf[4] = z;
-        if (z < extents_lrbtnf[5]) // z less than far
-            extents_lrbtnf[5] = z;
+        if (x < extents[0]) // x smaller than leftmost
+            extents[0] = x;
+        if (x > extents[1]) // x bigger than rightmost
+            extents[1] = x;
+        if (y < extents[2]) // y less than bottom
+            extents[2] = y;
+        if (y > extents[3]) // y more than top
+            extents[3] = y;
+        if (z > extents[4]) // z more than near
+            extents[4] = z;
+        if (z < extents[5]) // z less than far
+            extents[5] = z;
     }
+    return extents;
 }
 
 function readFile() {
@@ -43,8 +44,9 @@ function readFile() {
             if ('size' in file) {
                 txt += "size: " + file.size + " bytes <br>";
             }
-
-            parseFile(file);
+            for (let i = 0; i < x.files.length; i++) {
+                parseFile(x.files[i]);
+            }
         }
     }
     else {
@@ -63,7 +65,6 @@ function parseFile(file) {
 
     reader.onload = function(){
         let data = reader.result;
-        extents_lrbtnf = [];
 
         data = data.split(/\s*\r?\n\s*/); //split lines
         if (data[0].search(/ply/) === -1)
@@ -103,20 +104,47 @@ function parseFile(file) {
         print(n_polygons);
 
         // extract all vertices
-        vertices = [];
+        let extents = [];
+        let new_vertices = [];
         for (let i = 0; i < n_vertices; i++) {
             let co = strArrtoF(data.shift().split(/\s+/)); // extract data, turn to int array
-            vertices.push([co[0], co[1], co[2], 1.0]); // push to global vertices
-            update_ext(co[0], co[1], co[2]);
+            extents = update_ext(extents, co[0], co[1], co[2]);
+            new_vertices.push([co[0], co[1], co[2], 1.0]); // push to global vertices
+            //update_ext(co[0], co[1], co[2]);
+        }
+        let midX = (extents[1] + extents[0]) / 2;
+        let midY = (extents[3] + extents[2]) / 2;
+        let midZ = (extents[5] + extents[4]) / 2;
+
+        // normalize
+        let sum = 0;
+        const xyz = [extents[0] - extents[1], extents[2] - extents[3], extents[4] - extents[5]];
+        for (let aa = 0; aa < xyz.length; aa++) {
+            sum += xyz[aa] * xyz[aa];
+        }
+        let ratio = Math.sqrt(sum);
+        ratio /= 3;
+
+        // apply normalization
+        for (let i = 0; i < new_vertices.length; i++) {
+            new_vertices[i] = [new_vertices[i][0] - midX,
+                new_vertices[i][1] - midY, new_vertices[i][2] - midZ, 1.0]; // translate to (0, 0, 0)
+            for (let aa = 0; aa < new_vertices[i].length-1; aa++) {
+                new_vertices[i][aa] /= ratio; // scale
+            }
         }
 
+        // push
+        vertices.push(new_vertices);
+
         // extract all polygons
-        indices = [];
+        let new_indices = [];
         for (let i = 0; i < n_polygons; i++) {
             let coords = strArrtoF(data.shift().split(/\s+/)); // extract data, turn to int array
             coords.shift();
-            indices.push(coords); // push to global vertices
+            new_indices.push.apply(new_indices, coords); // push to global vertices
         }
+        indices.push(new_indices);
 
         print(vertices);
         print(indices);
