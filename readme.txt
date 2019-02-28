@@ -29,4 +29,3 @@ Controls available to the user:
     7) q,e: translate model positive/negative z
     8) r: freezes the rotation of the model
 
-NOTE: Unfortunately, due to to time conflicts with other courses, flat shading and the lines between the models have not been implemented yet.

@@ -23,10 +23,10 @@ let initAt;
 let objMiddle;
 let flatShadOn = 0;
 
-var lightPosition = vec4(10.0, 10.0, -4.0, 0.0 );
-var lightAmbient = vec4(0.2, 0.2, 0.2, 1.0 );
-var lightDiffuse = vec4( 1.0, 1.0, 1.0, 1.0 );
-var lightSpecular = vec4( 1.0, 1.0, 1.0, 1.0 );
+let lightPosition = vec4(10.0, 10.0, -4.0, 0.0 );
+let lightAmbient = vec4(0.2, 0.2, 0.2, 1.0 );
+let lightDiffuse = vec4( 1.0, 1.0, 1.0, 1.0 );
+let lightSpecular = vec4( 1.0, 1.0, 1.0, 1.0 );
 
 function add(n1, n2) {
 	return n1 + n2;
@@ -99,15 +99,13 @@ function setup() {
 }
 
 
-function main() 
-{
+function main() {
 	handleKeys();
 	gl.viewport(0, 0, canvas.width, canvas.height);
 
 	gl.enable(gl.DEPTH_TEST);
 
-	console.log("Called Main");
-
+	// handle having 1 or 2 shapes
 	if (indices.length === 2) {
 		indices = [indices[0], indices[1], indices[0], indices[1], indices[0], indices[1]];
 		vertices = [vertices[0], vertices[1], vertices[0], vertices[1], vertices[0], vertices[1]];
@@ -116,11 +114,14 @@ function main()
 		vertices = [vertices[0], vertices[0], vertices[0], vertices[0], vertices[0], vertices[0]];
 	}
 
+
+	// Define material properties for shapes
 	matProp = [];
 	for (let i = 0; i < indices.length; i++) {
 		matProp.push(defMatProp[i%defMatProp.length]);
 	}
 
+	// calculate normals
 	normals = [];
 	flatNormals = [];
 	for (let i = 0; i < vertices.length; i++) {
@@ -142,10 +143,10 @@ function main()
 	}
 
 	// Set clear color
-	gl.clearColor(0.0, 0.0, 0.0, 1.0);
+	gl.clearColor(0.5, 0.5, 0.5, 1.0);
 
-	gl.enable(gl.CULL_FACE);
-	gl.cullFace(gl.BACK);
+	// gl.enable(gl.CULL_FACE);
+	// gl.cullFace(gl.BACK);
 
 	// do some trig to figure out eye z value
 	const LtoR = Math.abs(extents_lrbtnf[1]) + Math.abs(extents_lrbtnf[0]); // length of left to right
@@ -175,12 +176,16 @@ function main()
 
 	mvMatrix = viewMatrix; // initialize mvMatrix
 
+	initTextures();
+
 	render();
 }
 
 let id;
 
 function render() {
+	gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
 	if (rotOn) // increment rotation if on
 		theta += 0.2;
 
@@ -203,24 +208,26 @@ function render() {
 	gl.uniform1f(gl.getUniformLocation(program,
 		"dotP"), spotLAngle);
 
-	// place final matrix in gpu buffer
 	let mvMatrixLoc = gl.getUniformLocation(program, "mvMatrix");
+
+	gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
 
 	let stack = new Stack();
 	let linePoints = [];
 	let point = vec4(0, 0, 0, 0);
 
 	stack.push(mvMatrix, 0);
+		mvMatrix = mult(mvMatrix, mult( mult(scalem(35, 35, 35), rotateY(45)), translate(1, -0.3, -1)));
+		gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
+		renderTex();
+
+	mvMatrix = stack.pop();
+
+	stack.push(mvMatrix, 0);
 		mvMatrix = mult(mvMatrix, translateMatrix);
 
-	if (indices.length === 2) {
-		indices = [indices[0], indices[0], indices[0], indices[1], indices[1], indices[1]];
-	} else if (indices.length === 1) {
-		indices = [indices[0], indices[0], indices[0], indices[0], indices[0], indices[0]];
-	}
 
 	if (indices.length >= 6) {
-		gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 		stack.push(mvMatrix, 0);
 		linePoints.push(point);
@@ -321,6 +328,10 @@ function objectDrawInd(index) {
 }
 
 function object(indices, vertices, matProp, normals) {
+	let texCoordsArray = [];
+	for (let i = 0; i < indices.length; i++) {
+		texCoordsArray.push(vec2(1,1)); // dummy textures
+	}
 
 	// INITIALIZE ATTRIBUTE BUFFERS
 
@@ -375,14 +386,26 @@ function object(indices, vertices, matProp, normals) {
 	gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
 	gl.enableVertexAttribArray(vPosition);
 
+	// TEXTURES
+	let tBuffer = gl.createBuffer();
+	gl.bindBuffer( gl.ARRAY_BUFFER, tBuffer );
+	gl.bufferData( gl.ARRAY_BUFFER, flatten(texCoordsArray), gl.STATIC_DRAW );
+
+	let vTexCoord = gl.getAttribLocation(program, "vTexCoord");
+	gl.vertexAttribPointer( vTexCoord, 2, gl.FLOAT, false, 0, 0 );
+	gl.enableVertexAttribArray( vTexCoord );
+
+
 	// NORMALS
-	var vBuffer2 = gl.createBuffer();
+	let vBuffer2 = gl.createBuffer();
 	gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer2);
 	gl.bufferData(gl.ARRAY_BUFFER, flatten(normals), gl.STATIC_DRAW);
 
-	var vNormal = gl.getAttribLocation( program, "vNormal");
+	let vNormal = gl.getAttribLocation( program, "vNormal");
 	gl.vertexAttribPointer(vNormal, 4, gl.FLOAT, false, 0, 0);
 	gl.enableVertexAttribArray(vNormal);
+
+	setHasTex(0.0);
 
 	gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT,0);
 }

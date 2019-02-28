@@ -5,17 +5,23 @@
     <title>WebGL Example File</title>
  
 	<script id="vshader" type="x-shader/x-vertex">
-	
-	attribute vec4 vPosition;	
-	attribute vec4 vNormal;
+
 	uniform mat4 mvMatrix;
 	uniform mat4 projMatrix;
-	uniform mat4 currTM;
 	uniform vec4 diffuseProduct, specularProduct, ambientProduct, lightPosition;
 	uniform float shininess;
 	uniform float dotP;
-	varying vec4 fColor;
+	uniform float hasTex;
+
+	attribute vec4 vPosition;
+	attribute vec4 vNormal;
+	attribute vec2 vTexCoord;
+
+    varying vec4 fColor;
+    varying vec2 fTexCoord;
+    varying float isTex;
 	void main() {
+	if (hasTex < 0.5) { // if not texture
 		//Convert the vertex position to eye coordinates
         vec3 pos = (mvMatrix * vPosition).xyz;
 
@@ -41,24 +47,36 @@
 
         vec3 lightDir = normalize(vec3(-1, -1, -2.2));
 
-        if(dot(L, -lightDir) > dotP)
-        {
-        diffuse = Kd*diffuseProduct;
-        specular = Ks * specularProduct;
+        if(dot(L, -lightDir) > dotP) {
+            diffuse = Kd*diffuseProduct;
+            specular = Ks * specularProduct;
         }
 
-        gl_Position = projMatrix * mvMatrix * vPosition;
         fColor = ambient + diffuse + specular;
         fColor.a = 1.0;
+    } else {
+        gl_Position.z = -gl_Position.z;
+        fTexCoord = vTexCoord;
+    }
+    gl_Position = projMatrix * mvMatrix * vPosition;
+    isTex = hasTex;
   	}
 	</script>
 	
 	<script id="fshader" type="x-shader/x-fragment">
 	precision mediump float;
+
+	varying vec2 fTexCoord;
 	varying vec4 fColor;
-	void main()
-	{
-		gl_FragColor = fColor;
+
+    uniform sampler2D texture;
+    varying float isTex;
+
+	void main() {
+	    if (isTex < 0.5) // if not texture
+		    gl_FragColor = fColor;
+		else
+		    gl_FragColor = texture2D(texture, fTexCoord);
   	}
 	</script>
 	
@@ -68,6 +86,7 @@
       <script src="file.js"></script>
     
     <script src="webgl.js"></script>
+      <script src="textures.js"></script>
 
   </head>
  
