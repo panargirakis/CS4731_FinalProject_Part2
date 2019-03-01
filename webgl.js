@@ -23,7 +23,7 @@ let initAt;
 let objMiddle;
 let flatShadOn = 0;
 
-let mvMatrixLoc;
+let mMatrixLoc;
 
 let lightPosition = vec4(8.0, 5.0, -20.0, 0.0 );
 let lightAmbient = vec4(0.2, 0.2, 0.2, 1.0 );
@@ -61,7 +61,7 @@ class Stack {
 	}
 }
 
-let mvMatrix;
+let mMatrix;
 
 let transXOn_isRi = [0, 0], transYOn_isUp = [0, 0], transZOn_isFr = [0, 0], rotOn = 1;
 
@@ -156,7 +156,7 @@ function main() {
 	// Set clear color
 	gl.clearColor(0.5, 0.5, 0.5, 1.0);
 
-	// gl.enable(gl.CULL_FACE);
+	// gl.enable(gl.CULL_FACE); TODO: re-enable this
 	// gl.cullFace(gl.BACK);
 
 	// do some trig to figure out eye z value
@@ -177,15 +177,19 @@ function main() {
 	const asRatio = canvas.width / canvas.height;
 	let thisProj = perspective(fovy, asRatio, extents_lrbtnf[4] / 10, initEye[2] * 20);
 
-	// EYE
-	const up = vec3(0.0, 1.0, 0.0);
-	let viewMatrix = lookAt(initEye, initAt, up);
-
 	// store PERSPECTIVE into gpu memory
 	let projMatrixLoc = gl.getUniformLocation(program, "projMatrix");
 	gl.uniformMatrix4fv(projMatrixLoc, false, flatten(thisProj));
 
-	mvMatrix = viewMatrix; // initialize mvMatrix
+	// EYE
+	const up = vec3(0.0, 1.0, 0.0);
+	let viewMatrix = lookAt(initEye, initAt, up);
+
+	// store View Matrix into gpu memory
+	let vMatrixLoc = gl.getUniformLocation(program, "viewMatrix");
+	gl.uniformMatrix4fv(vMatrixLoc, false, flatten(viewMatrix));
+
+	mMatrix = mat4(); // initialize mMatrix
 
 	initTextures();
 
@@ -230,101 +234,103 @@ function render() {
 	}
 	let translateMatrix = translate(trPar[0], trPar[1], trPar[2]); // translation matrix
 
+	// save spot angle
 	gl.uniform1f(gl.getUniformLocation(program,
 		"dotP"), spotLAngle);
 
-	mvMatrixLoc = gl.getUniformLocation(program, "mvMatrix");
-
-	gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
+	mMatrixLoc = gl.getUniformLocation(program, "mMatrix");
 
 	let stack = new Stack();
 	let linePoints = [];
 	let point = vec4(0, 0, 0, 0);
 
-	stack.push(mvMatrix, 0);
-		mvMatrix = mult(mvMatrix, mult( mult(scalem(80, 80, 80), rotateY(45)), translate(1, -0.3, -1)));
-		gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
+	// draw textures
+	stack.push(mMatrix, 0);
+		mMatrix = mult(mMatrix, mult( mult(scalem(80, 80, 80), rotateY(45)), translate(1, -0.3, -1)));
+		gl.uniformMatrix4fv(mMatrixLoc, false, flatten(mMatrix));
 		renderTex();
 
-	mvMatrix = stack.pop();
+	mMatrix = stack.pop();
 
-	stack.push(mvMatrix, 0);
-		mvMatrix = mult(mvMatrix, translateMatrix);
+	stack.push(mMatrix, 0);
+		mMatrix = mult(mMatrix, translateMatrix);
 
 
+	// draw the shapes
 	if (indices.length >= 6) {
 
-		stack.push(mvMatrix, 0);
+		stack.push(mMatrix, 0);
 		linePoints.push(point);
-			mvMatrix = mult(mvMatrix, rotateY(theta));
-			gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
+			mMatrix = mult(mMatrix, rotateY(theta));
+			gl.uniformMatrix4fv(mMatrixLoc, false, flatten(mMatrix));
 			objectDrawInd(0);
-		mvMatrix = stack.pop();
+		mMatrix = stack.pop();
 
-		stack.push(mvMatrix, 0);
-		mvMatrix = mult(mvMatrix, rotateY(-theta));
-			stack.push(mvMatrix, -theta);
-				mvMatrix = mult(mvMatrix, mult(translate(6, -3, 0), rotateY(stack.calcRot(theta))));
-				point = mult(mvMatrix, point);
+		stack.push(mMatrix, 0);
+		mMatrix = mult(mMatrix, rotateY(-theta));
+			stack.push(mMatrix, -theta);
+				mMatrix = mult(mMatrix, mult(translate(6, -3, 0), rotateY(stack.calcRot(theta))));
+				point = mult(mMatrix, point);
 				linePoints.push(point);
-				gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
+				gl.uniformMatrix4fv(mMatrixLoc, false, flatten(mMatrix));
 				objectDrawInd(1);
 
-				stack.push(mvMatrix, 0);
-					mvMatrix = mult(mvMatrix, mult(translate(2, -3, 0), rotateY(stack.calcRot(2*theta))));
-					point = mult(mvMatrix, point);
+				stack.push(mMatrix, 0);
+					mMatrix = mult(mMatrix, mult(translate(2, -3, 0), rotateY(stack.calcRot(2*theta))));
+					point = mult(mMatrix, point);
 					linePoints.push(point);
-					gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
+					gl.uniformMatrix4fv(mMatrixLoc, false, flatten(mMatrix));
 					objectDrawInd(1);
-				mvMatrix = stack.pop();
+				mMatrix = stack.pop();
 
-				stack.push(mvMatrix, 0);
-					mvMatrix = mult(mvMatrix, mult(translate(-2, -3, 0), rotateY(stack.calcRot(theta))));
+				stack.push(mMatrix, 0);
+					mMatrix = mult(mMatrix, mult(translate(-2, -3, 0), rotateY(stack.calcRot(theta))));
 					point = linePoints[linePoints.length-2];
-					point = mult(mvMatrix, point);
+					point = mult(mMatrix, point);
 					linePoints.push(point);
-					gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
+					gl.uniformMatrix4fv(mMatrixLoc, false, flatten(mMatrix));
 					objectDrawInd(2);
-				mvMatrix = stack.pop();
-			mvMatrix = stack.pop();
+				mMatrix = stack.pop();
+			mMatrix = stack.pop();
 
-			stack.push(mvMatrix, -theta);
-				mvMatrix = mult(mvMatrix, mult(translate(-6, -3, 0), rotateY(stack.calcRot(theta/3))));
+			stack.push(mMatrix, -theta);
+				mMatrix = mult(mMatrix, mult(translate(-6, -3, 0), rotateY(stack.calcRot(theta/3))));
 				point = linePoints[linePoints.length-4];
-				point = mult(mvMatrix, point);
+				point = mult(mMatrix, point);
 				linePoints.push(point);
 
-				gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
+				gl.uniformMatrix4fv(mMatrixLoc, false, flatten(mMatrix));
 				objectDrawInd(3);
 
-				stack.push(mvMatrix, 0);
-					mvMatrix = mult(mvMatrix, mult(translate(2, -3, 0), rotateY(stack.calcRot(3*theta))));
-					point = mult(mvMatrix, point);
+				stack.push(mMatrix, 0);
+					mMatrix = mult(mMatrix, mult(translate(2, -3, 0), rotateY(stack.calcRot(3*theta))));
+					point = mult(mMatrix, point);
 					linePoints.push(point);
-					gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
+					gl.uniformMatrix4fv(mMatrixLoc, false, flatten(mMatrix));
 					objectDrawInd(4);
-				mvMatrix = stack.pop();
+				mMatrix = stack.pop();
 
-				stack.push(mvMatrix, 0);
-					mvMatrix = mult(mvMatrix, mult(translate(-2, -3, 0), rotateY(stack.calcRot(theta/2))));
+				stack.push(mMatrix, 0);
+					mMatrix = mult(mMatrix, mult(translate(-2, -3, 0), rotateY(stack.calcRot(theta/2))));
 					point = linePoints[linePoints.length-2];
-					point = mult(mvMatrix, point);
+					point = mult(mMatrix, point);
 					linePoints.push(point);
-					gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
+					gl.uniformMatrix4fv(mMatrixLoc, false, flatten(mMatrix));
 					objectDrawInd(5);
-				mvMatrix = stack.pop();
+				mMatrix = stack.pop();
 
-			mvMatrix = stack.pop();
-		mvMatrix = stack.pop();
+			mMatrix = stack.pop();
+		mMatrix = stack.pop();
 	}
 
-	mvMatrix = stack.pop();
+	mMatrix = stack.pop();
 
 
 	id = requestAnimationFrame(render);
 
 }
 
+// draw object with index
 function objectDrawInd(index) {
 	const i = index;
 	if (flatShadOn) {
@@ -335,6 +341,8 @@ function objectDrawInd(index) {
 }
 
 function object(indices, vertices, matProp, normals) {
+
+	// create dummy texture coordinate values
 	let texCoordsArray = [];
 	for (let i = 0; i < indices.length; i++) {
 		texCoordsArray.push(vec2(1,1)); // dummy textures
@@ -426,18 +434,23 @@ function object(indices, vertices, matProp, normals) {
 		m[3][3] = 0;
 		m[3][2] = -1 / lightPosition[2]; // shadow size is proportional to light proximity
 
-		let modelViewMatrix = mult(mvMatrix, translate(lightPosition[0], lightPosition[1], lightPosition[2]));
-		modelViewMatrix = mult(modelViewMatrix, m);
-		modelViewMatrix = mult(modelViewMatrix, translate(-lightPosition[0], -lightPosition[1], -lightPosition[2]));
-		// modelViewMatrix = mult(modelViewMatrix, translate(0, 0, -3));
+		let shadowTrans = mult(
+			translate(lightPosition[0], lightPosition[1], lightPosition[2]),
+			mult(m, translate(-lightPosition[0], -lightPosition[1], -lightPosition[2]))
+		);
 
-		gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(modelViewMatrix));
+		let modelMatrix = mult(shadowTrans, mMatrix);
+
+		// modelMatrix = mult(modelMatrix, translate(0, 0, -3));
+
+		gl.uniformMatrix4fv(mMatrixLoc, false, flatten(shadowTrans));
 		gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
 
 		setIsShadow(0.0);
 	}
 }
 
+// set the shader flag
 function setIsShadow(num) {
 	gl.uniform1f(gl.getUniformLocation(program,
 		"isShadow"), num);

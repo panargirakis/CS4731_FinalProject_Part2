@@ -23,6 +23,7 @@ let texCoord = [
     vec2(maxT, minT)
 ];
 
+// vertices for creating walls
 let quadVert = [
     vec4( -0.5, -0.5,  0.5, 1.0 ),
     vec4( -0.5,  0.5,  0.5, 1.0 ),
@@ -34,7 +35,7 @@ let quadVert = [
     vec4( 0.5, -0.5, -0.5, 1.0 )
 ];
 
-
+// create a plain texture
 function plainTexture(ind) {
     let color = [0, 0, 255, 255];
     if (ind === 0) {
@@ -53,6 +54,7 @@ function plainTexture(ind) {
     return tex;
 }
 
+// load images into texture units
 function loadTexture(url) {
     let tex = plainTexture();
 
@@ -73,13 +75,14 @@ function loadTexture(url) {
     return tex;
 }
 
-
+// switch between textures
 function activateTex(ind) {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, texToUse[ind]);
     gl.uniform1i(gl.getUniformLocation(program, "texture"), 0);
 }
 
+// is used to crete walls
 function quad(a, b, c, d) {
     let points = [];
     let texPoints = [];
@@ -105,6 +108,7 @@ function quad(a, b, c, d) {
     return [points, texPoints];
 }
 
+// create walls array
 function wall()
 {
     let temp = quad( 2, 3, 7, 6 );
@@ -115,34 +119,39 @@ function wall()
     walltexCoords = walltexCoords.concat(temp[1]);
 }
 
+// create floor array
 function floor() {
     let temp = quad( 0, 3, 7, 4 );
     floorPoints = temp[0];
     floortexCoords = temp[1];
 }
 
+// render textures
 function renderTex() {
-    if (texOn) {
+    if (texOn) { // decide if plain or textured
         texToUse = texture;
     } else {
         texToUse = plainTex;
     }
 
-    setHasTex(1.0);
+    setHasTex(1.0); // set flag
 
-    activateTex(1);
-    bufferWall(floorPoints, floortexCoords);
+    activateTex(1); // set which texture is used
+    bufferWall(floorPoints, floortexCoords); // buffer texture
     gl.drawArrays( gl.TRIANGLES, 0, floorPoints.length);
+
     activateTex(0);
     bufferWall(wallPoints, walltexCoords);
     gl.drawArrays( gl.TRIANGLES, 0, wallPoints.length);
 }
 
+// set shader flag
 function setHasTex(num) {
     gl.uniform1f(gl.getUniformLocation(program,
         "hasTex"), num);
 }
 
+// initialize the textures
 function initTextures() {
     wall();
     floor();
@@ -156,6 +165,7 @@ function initTextures() {
     plainTex.push(plainTexture(0));
 }
 
+// store a wall (or floor) into vertex buffer
 function bufferWall(points, texCoords) {
     bufferDummyNormals(points);
 
@@ -176,6 +186,7 @@ function bufferWall(points, texCoords) {
     gl.enableVertexAttribArray( vTexCoord );
 }
 
+// buffer dummy normals into shader attribute
 function bufferDummyNormals(points) {
     let normals = [];
     for (let i = 0; i < points.length; i++) {

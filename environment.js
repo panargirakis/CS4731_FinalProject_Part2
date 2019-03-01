@@ -9,6 +9,7 @@ let cubeMap;
 
 let images = [];
 
+// config plain environment map using basic colors
 function configureCubeMap() {
     cubeMap = gl.createTexture();
 
@@ -32,7 +33,8 @@ function configureCubeMap() {
 
 }
 
-
+// configure env map using images
+// ASSUMES: all images have finished loading
 function configureCubeMapImage(images) {
     if (images.length !== 6)
         throw "cube map needs 6 images";
@@ -59,23 +61,25 @@ function configureCubeMapImage(images) {
 
 }
 
-
+// loads image based on url
 function configImage(url, ind) {
     let image = new Image();
     image.crossOrigin = "";
     image.src = url;
     image.onload = function() {
         images[ind] = image;
-        if (images.length === 6)
-            configureCubeMapImage(images);
+        if (images.length === 6) // if all images have loaded
+            configureCubeMapImage(images); // configure map
     }
 }
 
+// set shader flag
 function setReflectOn(num) {
     gl.uniform1f(gl.getUniformLocation(program,
         "reflOn"), num);
 }
 
+// set shader flag
 function setRefractOn(num) {
     gl.uniform1f(gl.getUniformLocation(program,
         "refrOn"), num);

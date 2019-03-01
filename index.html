@@ -6,8 +6,9 @@
  
 	<script id="vshader" type="x-shader/x-vertex">
 
-	uniform mat4 mvMatrix;
+	uniform mat4 mMatrix;
 	uniform mat4 projMatrix;
+	uniform mat4 viewMatrix;
 	uniform vec4 diffuseProduct, specularProduct, ambientProduct, lightPosition;
 	uniform float shininess;
 	uniform float dotP;
@@ -27,7 +28,7 @@
 	        fColor = vec4(0.0, 0.0, 0.0, 1.0);
 	    } else {
             //Convert the vertex position to eye coordinates
-            vec3 pos = (mvMatrix * vPosition).xyz;
+            vec3 pos = (viewMatrix * mMatrix * vPosition).xyz;
 
             //Calculate L
             vec3 L = normalize(lightPosition.xyz - pos);
@@ -36,7 +37,7 @@
             vec3 V = normalize(-pos);
 
             //Convert vertex normal to eye coordinates
-            vec3 N = normalize(mvMatrix * vNormal).xyz;
+            vec3 N = normalize(viewMatrix * mMatrix * vNormal).xyz;
 
             //Calculate reflection vector
             vec3 R = (2.0 * dot(L, N) * N) - L;
@@ -72,7 +73,7 @@
         gl_Position.z = -gl_Position.z;
         fTexCoord = vTexCoord;
     }
-    gl_Position = projMatrix * mvMatrix * vPosition;
+    gl_Position = projMatrix * viewMatrix * mMatrix * vPosition;
     isTex = hasTex;
     visShadow = isShadow;
     fenvMapOn = reflOn + refrOn;
