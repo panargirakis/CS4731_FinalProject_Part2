@@ -9,7 +9,9 @@ let texToUse = [];
 let plainTex = [];
 
 let minT = 0.0;
-let maxT = 1.0;
+let maxT = 2.5;
+
+let texOn;
 
 //Texture coordinates at the corners of a quadrilateral
 //Right side up
@@ -32,19 +34,18 @@ let quadVert = [
     vec4( 0.5, -0.5, -0.5, 1.0 )
 ];
 
-let xAxis = 0;
-let yAxis = 1;
-let zAxis = 2;
-let axis = xAxis;
-// let theta = [45.0, 45.0, 45.0];
 
+function plainTexture(ind) {
+    let color = [0, 0, 255, 255];
+    if (ind === 0) {
+        color = [128, 128, 128, 255];
+    }
 
-function plainTexture() {
     let tex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, tex);
 
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
-        new Uint8Array([0, 0, 255, 255]));
+        new Uint8Array(color));
 
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
@@ -62,8 +63,8 @@ function loadTexture(url) {
         gl.bindTexture(gl.TEXTURE_2D, tex);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
 
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
 
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
@@ -121,7 +122,6 @@ function floor() {
 }
 
 function renderTex() {
-    let texOn = 1;
     if (texOn) {
         texToUse = texture;
     } else {
@@ -149,11 +149,11 @@ function initTextures() {
 
     let url = "http://web.cs.wpi.edu/~jmcuneo/stones.bmp";
     texture.push(loadTexture(url));
-    plainTex.push(plainTexture());
+    plainTex.push(plainTexture(1));
 
     url = "http://web.cs.wpi.edu/~jmcuneo/grass.bmp";
     texture.push(loadTexture(url));
-    plainTex.push(plainTexture());
+    plainTex.push(plainTexture(0));
 }
 
 function bufferWall(points, texCoords) {

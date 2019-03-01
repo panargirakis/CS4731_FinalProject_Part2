@@ -22,10 +22,15 @@ After the files have been selected, the animation will run.
 Controls available to the user:
     1) i: decrease spotlight angle
     2) p: increase spotlight angle
-    3) w: translate model up
-    4) s: translate model down
-    5) a: translate model left
-    6) d: translate model right
+    3) ArrowUp: translate model up
+    4) ArrowDown: translate model down
+    5) ArrowLeft: translate model left
+    6) ArrowRight: translate model right
     7) q,e: translate model positive/negative z
-    8) r: freezes the rotation of the model
+    8) r: toggles the rotation of the model
+    9) a: toggle shadows
+    10) b: toggle image textures
+    11) c: toggle reflection
+    12) d: toggle refraction
+
 

@@ -40,7 +40,6 @@ function readFile() {
             totFilesRead = x.files.length;
             indices = [];
             vertices = [];
-            spotLAngle = 0.96;
             txt += "<br><strong>" + "File info:</strong><br>";
             let file = x.files[0];
             if ('name' in file) {

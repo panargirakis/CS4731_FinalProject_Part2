@@ -12,7 +12,7 @@ let defMatProp=[
 ];
 let matProp;
 let theta = 0;
-let spotLAngle = 0.96;
+let spotLAngle;
 const spotLAngInc = -0.005;
 let isIncr = 1;
 let trPar = [0, 0, 0];
@@ -23,10 +23,17 @@ let initAt;
 let objMiddle;
 let flatShadOn = 0;
 
-let lightPosition = vec4(10.0, 10.0, -4.0, 0.0 );
+let mvMatrixLoc;
+
+let lightPosition = vec4(8.0, 5.0, -20.0, 0.0 );
 let lightAmbient = vec4(0.2, 0.2, 0.2, 1.0 );
 let lightDiffuse = vec4( 1.0, 1.0, 1.0, 1.0 );
 let lightSpecular = vec4( 1.0, 1.0, 1.0, 1.0 );
+
+let shadowsOn;
+
+let reflectionOn;
+let refractionOn;
 
 function add(n1, n2) {
 	return n1 + n2;
@@ -71,7 +78,11 @@ function initVar() {
 	indices = [];
 	vertices = [];
 	totFilesRead = 0;
-	spotLAngle = 0.96;
+	spotLAngle = 0.89;
+	reflectionOn = 0.0;
+	refractionOn = 0.0;
+	shadowsOn = 0.0;
+	texOn = 1.0;
 }
 
 function setup() {
@@ -178,6 +189,20 @@ function main() {
 
 	initTextures();
 
+	// ~~~~~~~~ ENVIRONMENT MAP STUFF ~~~~~~~~~~~
+	configureCubeMap();
+
+	configImage("http://web.cs.wpi.edu/~jmcuneo/env_map_sides/nvposx.bmp", 0);
+	configImage("http://web.cs.wpi.edu/~jmcuneo/env_map_sides/nvnegx.bmp", 1);
+	configImage("http://web.cs.wpi.edu/~jmcuneo/env_map_sides/nvposy.bmp", 2);
+	configImage("http://web.cs.wpi.edu/~jmcuneo/env_map_sides/nvnegy.bmp", 3);
+	configImage("http://web.cs.wpi.edu/~jmcuneo/env_map_sides/nvposz.bmp", 4);
+	configImage("http://web.cs.wpi.edu/~jmcuneo/env_map_sides/nvnegz.bmp", 5);
+
+	setReflectOn(reflectionOn);
+	setRefractOn(refractionOn);
+
+
 	render();
 }
 
@@ -208,7 +233,7 @@ function render() {
 	gl.uniform1f(gl.getUniformLocation(program,
 		"dotP"), spotLAngle);
 
-	let mvMatrixLoc = gl.getUniformLocation(program, "mvMatrix");
+	mvMatrixLoc = gl.getUniformLocation(program, "mvMatrix");
 
 	gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
 
@@ -217,7 +242,7 @@ function render() {
 	let point = vec4(0, 0, 0, 0);
 
 	stack.push(mvMatrix, 0);
-		mvMatrix = mult(mvMatrix, mult( mult(scalem(35, 35, 35), rotateY(45)), translate(1, -0.3, -1)));
+		mvMatrix = mult(mvMatrix, mult( mult(scalem(80, 80, 80), rotateY(45)), translate(1, -0.3, -1)));
 		gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
 		renderTex();
 
@@ -292,30 +317,12 @@ function render() {
 			mvMatrix = stack.pop();
 		mvMatrix = stack.pop();
 	}
-	else {
-		// gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(mvMatrix));
-		// drawAll();
-	}
 
 	mvMatrix = stack.pop();
 
 
 	id = requestAnimationFrame(render);
 
-}
-
-function drawAll() {
-
-	gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-	for (let i = 0; i < indices.length; i++) {
-		if (flatShadOn) {
-			object(indices[i], vertices[i], matProp[i], flatNormals[i]);
-		} else {
-			object(indices[i], vertices[i], matProp[i], normals[i]);
-		}
-
-	}
 }
 
 function objectDrawInd(index) {
@@ -408,6 +415,32 @@ function object(indices, vertices, matProp, normals) {
 	setHasTex(0.0);
 
 	gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT,0);
+
+	if (shadowsOn) {
+
+		// ~~~~~~~~~~ SHADOWS ~~~~~~~~~~~
+
+		setIsShadow(1.0);
+
+		let m = mat4();
+		m[3][3] = 0;
+		m[3][2] = -1 / lightPosition[2]; // shadow size is proportional to light proximity
+
+		let modelViewMatrix = mult(mvMatrix, translate(lightPosition[0], lightPosition[1], lightPosition[2]));
+		modelViewMatrix = mult(modelViewMatrix, m);
+		modelViewMatrix = mult(modelViewMatrix, translate(-lightPosition[0], -lightPosition[1], -lightPosition[2]));
+		// modelViewMatrix = mult(modelViewMatrix, translate(0, 0, -3));
+
+		gl.uniformMatrix4fv(mvMatrixLoc, false, flatten(modelViewMatrix));
+		gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
+
+		setIsShadow(0.0);
+	}
+}
+
+function setIsShadow(num) {
+	gl.uniform1f(gl.getUniformLocation(program,
+		"isShadow"), num);
 }
 
 function sinDeg(angleDegrees) {
@@ -424,6 +457,24 @@ function handleKeys() {
 	{
 		let key = event.key;
 		switch (key) {
+			case "b": {
+				texOn = flip(texOn);
+				break;
+			}
+			case "a": {
+				shadowsOn = flip(shadowsOn);
+				break;
+			}
+			case "c": {
+				reflectionOn = flip(reflectionOn);
+				setReflectOn(reflectionOn);
+				break;
+			}
+			case "d": {
+				refractionOn = flip(refractionOn);
+				setRefractOn(refractionOn);
+				break;
+			}
 			case "m": {
 				flatShadOn = 0;
 				break;
@@ -440,7 +491,7 @@ function handleKeys() {
 				spotLAngle -= spotLAngInc;
 				break;
 			}
-			case "d": {
+			case "ArrowRight": {
 				if (transXOn_isRi[0] || transYOn_isUp[0] || transZOn_isFr[0]) {
 					transXOn_isRi[0] = 0; transYOn_isUp[0] = 0; transZOn_isFr[0] = 0;
 				} else {
@@ -448,7 +499,7 @@ function handleKeys() {
 				}
 				break;
 			}
-			case "a": {
+			case "ArrowLeft": {
 				if (transXOn_isRi[0] || transYOn_isUp[0] || transZOn_isFr[0]) {
 					transXOn_isRi[0] = 0; transYOn_isUp[0] = 0; transZOn_isFr[0] = 0;
 				} else {
@@ -456,7 +507,7 @@ function handleKeys() {
 				}
 				break;
 			}
-			case "w": {
+			case "ArrowUp": {
 				if (transXOn_isRi[0] || transYOn_isUp[0] || transZOn_isFr[0]) {
 					transXOn_isRi[0] = 0; transYOn_isUp[0] = 0; transZOn_isFr[0] = 0;
 				} else {
@@ -464,7 +515,7 @@ function handleKeys() {
 				}
 				break;
 			}
-			case "s": {
+			case "ArrowDown": {
 				if (transXOn_isRi[0] || transYOn_isUp[0] || transZOn_isFr[0]) {
 					transXOn_isRi[0] = 0; transYOn_isUp[0] = 0; transZOn_isFr[0] = 0;
 				} else {
