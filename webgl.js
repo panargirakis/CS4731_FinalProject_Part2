@@ -17,6 +17,8 @@ const spotLAngInc = -0.005;
 let isIncr = 1;
 let trPar = [0, 0, 0];
 
+let incChangeEye = 0.02;
+
 const fovy = 30.0;
 let initEye;
 let initAt;
@@ -25,7 +27,7 @@ let flatShadOn = 0;
 
 let mMatrixLoc;
 
-let lightPosition = vec4(8.0, 5.0, -20.0, 0.0 );
+let lightPosition = vec4(5.0, 8.0, -20.0, 0.0 );
 let lightAmbient = vec4(0.2, 0.2, 0.2, 1.0 );
 let lightDiffuse = vec4( 1.0, 1.0, 1.0, 1.0 );
 let lightSpecular = vec4( 1.0, 1.0, 1.0, 1.0 );
@@ -34,6 +36,8 @@ let shadowsOn;
 
 let reflectionOn;
 let refractionOn;
+
+let viewMatrix;
 
 function add(n1, n2) {
 	return n1 + n2;
@@ -78,7 +82,7 @@ function initVar() {
 	indices = [];
 	vertices = [];
 	totFilesRead = 0;
-	spotLAngle = 0.89;
+	spotLAngle = 0.70;
 	reflectionOn = 0.0;
 	refractionOn = 0.0;
 	shadowsOn = 0.0;
@@ -156,7 +160,7 @@ function main() {
 	// Set clear color
 	gl.clearColor(0.5, 0.5, 0.5, 1.0);
 
-	// gl.enable(gl.CULL_FACE); TODO: re-enable this
+	// gl.enable(gl.CULL_FACE);
 	// gl.cullFace(gl.BACK);
 
 	// do some trig to figure out eye z value
@@ -183,7 +187,7 @@ function main() {
 
 	// EYE
 	const up = vec3(0.0, 1.0, 0.0);
-	let viewMatrix = lookAt(initEye, initAt, up);
+	viewMatrix = lookAt(initEye, initAt, up);
 
 	// store View Matrix into gpu memory
 	let vMatrixLoc = gl.getUniformLocation(program, "viewMatrix");
@@ -219,7 +223,7 @@ function render() {
 		theta += 0.2;
 
 	// handle the translation of the object
-	const translSpeed = 0.01;
+	const translSpeed = 0.07;
 	if (transXOn_isRi[0]) { // if X translate on
 		let sign = transXOn_isRi[1] === 1 ? 1 : -1; // determine direction
 		trPar[0] += sign * translSpeed; // update translation vector
@@ -439,11 +443,32 @@ function object(indices, vertices, matProp, normals) {
 			mult(m, translate(-lightPosition[0], -lightPosition[1], -lightPosition[2]))
 		);
 
-		let modelMatrix = mult(shadowTrans, mMatrix);
+		let xCoordOfShape = mult(mMatrix, vec4(0.0, 0.0, 0.0, 1.0))[0];
+		let y = mult(mMatrix, vec4(0.0,0.0,0.0,1.0))[1];
 
-		// modelMatrix = mult(modelMatrix, translate(0, 0, -3));
+		let x, z, rotation;
+		const distFromWall = 28.0;
+		const lightZ = lightPosition[2];
 
-		gl.uniformMatrix4fv(mMatrixLoc, false, flatten(shadowTrans));
+		if (xCoordOfShape === 0) {
+			z = -distFromWall;
+			x = 0;
+			rotation = 0;
+		} else if (xCoordOfShape < 0) {
+			z = (distFromWall + xCoordOfShape) / ((xCoordOfShape / lightZ) - 1);
+			x = -1 * z - distFromWall;
+			rotation = 45;
+		} else {
+			z = (xCoordOfShape - distFromWall) / ((xCoordOfShape / lightZ) + 1);
+			x = z + distFromWall;
+			rotation = -45;
+		}
+
+		let modelMatrix = mult(translate(x, y-lightPosition[1], z), rotateY(rotation));
+
+		modelMatrix = mult(modelMatrix, shadowTrans);
+
+		gl.uniformMatrix4fv(mMatrixLoc, false, flatten(modelMatrix));
 		gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
 
 		setIsShadow(0.0);
@@ -505,6 +530,26 @@ function handleKeys() {
 				break;
 			}
 			case "ArrowRight": {
+				initEye[0] += incChangeEye;
+				updateEye();
+				break;
+			}
+			case "ArrowLeft": {
+				initEye[0] -= incChangeEye;
+				updateEye();
+				break;
+			}
+			case "ArrowUp": {
+				initEye[1] += incChangeEye;
+				updateEye();
+				break;
+			}
+			case "ArrowDown": {
+				initEye[1] -= incChangeEye;
+				updateEye();
+				break;
+			}
+			case "h": {
 				if (transXOn_isRi[0] || transYOn_isUp[0] || transZOn_isFr[0]) {
 					transXOn_isRi[0] = 0; transYOn_isUp[0] = 0; transZOn_isFr[0] = 0;
 				} else {
@@ -512,7 +557,7 @@ function handleKeys() {
 				}
 				break;
 			}
-			case "ArrowLeft": {
+			case "f": {
 				if (transXOn_isRi[0] || transYOn_isUp[0] || transZOn_isFr[0]) {
 					transXOn_isRi[0] = 0; transYOn_isUp[0] = 0; transZOn_isFr[0] = 0;
 				} else {
@@ -520,7 +565,7 @@ function handleKeys() {
 				}
 				break;
 			}
-			case "ArrowUp": {
+			case "t": {
 				if (transXOn_isRi[0] || transYOn_isUp[0] || transZOn_isFr[0]) {
 					transXOn_isRi[0] = 0; transYOn_isUp[0] = 0; transZOn_isFr[0] = 0;
 				} else {
@@ -528,7 +573,7 @@ function handleKeys() {
 				}
 				break;
 			}
-			case "ArrowDown": {
+			case "g": {
 				if (transXOn_isRi[0] || transYOn_isUp[0] || transZOn_isFr[0]) {
 					transXOn_isRi[0] = 0; transYOn_isUp[0] = 0; transZOn_isFr[0] = 0;
 				} else {
@@ -558,4 +603,13 @@ function handleKeys() {
 			}
 		}
 	};
+}
+
+function updateEye() {
+	const up = vec3(0.0, 1.0, 0.0);
+	viewMatrix = lookAt(initEye, initAt, up);
+
+	// store View Matrix into gpu memory
+	let vMatrixLoc = gl.getUniformLocation(program, "viewMatrix");
+	gl.uniformMatrix4fv(vMatrixLoc, false, flatten(viewMatrix));
 }

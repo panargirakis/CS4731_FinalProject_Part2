@@ -1,6 +1,6 @@
 Structure and implementation notes:
 
-The program starts by initializing the canvas and the webgl elements. By default, a blank canvas is displayed. The rendering starts when the user selects the ply files to be used. The setup() function initializes the basic webgl elements, namely the canvas and the shaders. The main() function, which gets called immediately after a new file has been parsed, calculates and initializes all the constant elements such as the view and projection matrices, the normals and the textures. It then calls the render function. The render function is the callback for an animation frame, and handles the model calculations and the drawing of objects, textures and shadows. Note that instead of representing each shape as a list of vertices, it is a list of indices to vertices. The use of ELEMENT_ARRAY_BUFFER ensures that webgl translates the indices into vertices. This implementation intends to maximize efficiency. The spotlight is roughly located in the middle of the scene regarding x,y and far back in the negative z direction (lightPosition = vec4(8.0, 5.0, -20.0, 0.0)).
+The program starts by initializing the canvas and the webgl elements. By default, a blank canvas is displayed. The rendering starts when the user selects the ply files to be used. The setup() function initializes the basic webgl elements, namely the canvas and the shaders. The main() function, which gets called immediately after a new file has been parsed, calculates and initializes all the constant elements such as the view and projection matrices, the normals and the textures. It then calls the render function. The render function is the callback for an animation frame, and handles the model calculations and the drawing of objects, textures and shadows. Note that instead of representing each shape as a list of vertices, it is a list of indices to vertices. The use of ELEMENT_ARRAY_BUFFER ensures that webgl translates the indices into vertices. This implementation intends to maximize efficiency. The spotlight is roughly located in the top right corner of the scene regarding x,y and far back in the negative z direction (lightPosition = vec4(8.0, 5.0, -20.0, 0.0)).
 
 Apart from the libraries, the program is comprised of 5 code files.
 
@@ -24,11 +24,6 @@ After the files have been selected, the animation will run.
 Controls available to the user:
     1) i: decrease spotlight angle
     2) p: increase spotlight angle
-    3) ArrowUp: translate model up
-    4) ArrowDown: translate model down
-    5) ArrowLeft: translate model left
-    6) ArrowRight: translate model right
-    7) q,e: translate model positive/negative z
     8) r: toggles the rotation of the model
     9) a: toggle shadows
     10) b: toggle image textures
@@ -36,3 +31,16 @@ Controls available to the user:
     12) d: toggle refraction
 
 By default, textures are on, reflection is off, refraction is off and shadows are off.
+
+Extra Credit:
+
+The following controls were added:
+    1) t: translate model up
+    2) g: translate model down
+    3) f: translate model left
+    4) h: translate model right
+    5) q,e: translate model positive/negative z
+    6) ArrowUp: translate wall up
+    7) ArrowDown: translate wall down
+    8) ArrowLeft: translate wall left
+    9) ArrowRight: translate wall right
